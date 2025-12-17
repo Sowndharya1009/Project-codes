@@ -1,0 +1,225 @@
+https://colab.research.google.com/drive/1kLrVGEAoeuzyU2EI864XdGoCzGLid3pu?usp=sharing
+
+Google colab code !!!!
+
+
+From Google Colab you have downloaded:
+output.json
+
+
+PLACE JSON IN YOUR LOCAL PROJECT FOLDER
+
+Your local folder should look like this:
+
+pro AI/
+ ├── send_data.py
+ ├── output.json  (place it here)
+
+send_data.py
+
+
+LOCAL PC CODE (serial communication) VS Code
+
+python -m pip install pyserial
+
+Successfully installed pyserial                             ------> Run in terminal
+
+python -c "import serial; print(serial.__version__)"
+
+
+code****file name -> send_data.py
+
+import json
+import time
+
+def send_to_robot(x, y):
+    print("Simulating serial communication...")
+    time.sleep(1)
+    print(f"Data that would be sent to Arduino: {x},{y}")
+
+# Read JSON
+with open("output.json", "r") as f:
+    data = json.load(f)
+
+# Check debris presence
+if not data["debris_present"]:
+    print("No debris detected. Robot will not move.")
+
+else:
+    print("Debris detected. Sending coordinates...")
+
+    for det in data["detections"]:
+        x, y = det["center"]
+        send_to_robot(x, y)
+
+****code
+
+
+Install Arduino -> https://www.arduino.cc/en/software/
+
+change select board -> Arduino UNO
+
+file-> robot.ino
+ 
+**** code
+String data = "";
+
+void setup() {
+  Serial.begin(9600);          // Same baud rate as Python
+  Serial.println("Arduino Ready");
+}
+
+void loop() {
+  if (Serial.available()) {
+    data = Serial.readStringUntil('\n');
+
+    int commaIndex = data.indexOf(',');
+    if (commaIndex != -1) {
+      int x = data.substring(0, commaIndex).toInt();
+      int y = data.substring(commaIndex + 1).toInt();
+
+      Serial.print("Received X: ");
+      Serial.print(x);
+      Serial.print("  Y: ");
+      Serial.println(y);
+
+      moveArm(x, y);
+    }
+  }
+}
+
+void moveArm(int x, int y) {
+  // Motor / servo logic will go here
+  Serial.println("Moving robot arm to position...");
+}
+
+****code
+
+O/P: Sketch uses 4184 bytes (12%) of program storage space. Maximum is 32256 bytes.
+Global variables use 272 bytes (13%) of dynamic memory, leaving 1776 bytes for local variables. Maximum is 2048 bytes.	
+
+
+AFTER YOU GET ARDUINO (REAL VERSION)
+You will replace only this part.
+New send_serial.py (REAL SERIAL)
+
+code****
+
+import json
+import time
+import serial   # NEW
+
+#1. Open serial connection (check COM port)
+ser = serial.Serial("COM3", 9600, timeout=1)
+time.sleep(2)   # wait for Arduino reset
+
+def send_to_robot(x, y):
+    message = f"{x},{y}\n"
+    ser.write(message.encode())
+    print("Sent to Arduino:", message.strip())
+    time.sleep(1)
+
+#2. Read JSON
+with open("output.json", "r") as f:
+    data = json.load(f)
+
+#3. Decide and send
+if not data["debris_present"]:
+    print("No debris detected. Robot will not move.")
+
+else:
+    print("Debris detected. Sending coordinates...")
+
+    for det in data["detections"]:
+        x, y = det["center"]
+        send_to_robot(x, y)
+
+ser.close()
+
+****code
+
+
+
+ONLY difference:
+Simulation print() → real serial.write()
+
+WHAT CHANGES IN ARDUINO CODE
+BEFORE (testing only)
+
+     Arduino just prints values.
+
+AFTER (REAL ROBOT CONTROL)
+
+	Arduino will:
+
+	Receive "x,y"
+
+	Split values
+
+	Convert to servo angles
+
+	Move motors
+
+Arduino (robot.ino) – BASIC VERSION
+
+
+code****
+#include <Servo.h>
+
+Servo servoX;
+Servo servoY;
+
+String data = "";
+
+void setup() {
+  Serial.begin(9600);
+  servoX.attach(9);
+  servoY.attach(10);
+  Serial.println("Arduino Ready");
+}
+
+void loop() {
+  if (Serial.available()) {
+    data = Serial.readStringUntil('\n');
+
+    int commaIndex = data.indexOf(',');
+    if (commaIndex != -1) {
+      int x = data.substring(0, commaIndex).toInt();
+      int y = data.substring(commaIndex + 1).toInt();
+
+      Serial.print("Received X: ");
+      Serial.print(x);
+      Serial.print(" Y: ");
+      Serial.println(y);
+
+      moveArm(x, y);
+    }
+  }
+}
+
+void moveArm(int x, int y) {
+  int angleX = map(x, 0, 1024, 0, 180);
+  int angleY = map(y, 0, 1024, 0, 180);
+
+  servoX.write(angleX);
+  servoY.write(angleY);
+}
+****code
+
+YOLO (Colab)
+   ↓
+output.json
+   ↓
+send_serial.py (local PC)
+   ↓  USB (Serial)
+Arduino
+   ↓
+Servo motors
+   ↓
+Robot arm moves
+
+
+
+
+
+
