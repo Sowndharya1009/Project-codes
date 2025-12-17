@@ -1,0 +1,267 @@
+https://colab.research.google.com/drive/1kLrVGEAoeuzyU2EI864XdGoCzGLid3pu?usp=sharing
+
+Google colab code !!!!
+
+
+LOCAL PC CODE (serial communication) VS Code
+
+python -m pip install pyserial
+
+Successfully installed pyserial                             ------> Run in terminal
+
+python -c "import serial; print(serial.__version__)"
+
+
+
+CHECK YOUR CODE (MINIMAL & CORRECT)
+Your file send_serial.py should look like this 👇
+
+send_data.py
+
+import serial
+import time
+
+PORT = 'COM3'       # change if needed
+BAUD_RATE = 9600
+
+def send_to_robot(x, y):
+    print("Connecting to Arduino...")
+
+    ser = serial.Serial(PORT, BAUD_RATE, timeout=1)
+    time.sleep(2)
+
+    message = f"{x},{y}\n"
+    ser.write(message.encode())
+
+    print("Sent:", message.strip())
+    ser.close()
+
+
+# TEST CALL (IMPORTANT)
+send_to_robot(120, 210)
+
+
+O/P: Connecting to Arduino...
+
+send_data.py
+
+
+import time
+
+def send_to_robot(x, y):
+    print("Simulating serial communication...")
+    time.sleep(1)
+
+    message = f"{x},{y}"
+    print("Data that would be sent to Arduino:", message)
+
+
+# 🔽 THIS PART IS IMPORTANT
+if __name__ == "__main__":
+    send_to_robot(270, 230)
+
+
+
+Simulating serial communication...
+Data that would be sent to Arduino: 270,230
+
+Install Arduino -> https://www.arduino.cc/en/software/
+
+change select board -> Arduino UNO
+
+file-> robot.ino
+
+String data = "";
+
+void setup() {
+  Serial.begin(9600);          // Same baud rate as Python
+  Serial.println("Arduino Ready");
+}
+
+void loop() {
+  if (Serial.available()) {
+    data = Serial.readStringUntil('\n');
+
+    int commaIndex = data.indexOf(',');
+    if (commaIndex != -1) {
+      int x = data.substring(0, commaIndex).toInt();
+      int y = data.substring(commaIndex + 1).toInt();
+
+      Serial.print("Received X: ");
+      Serial.print(x);
+      Serial.print("  Y: ");
+      Serial.println(y);
+
+      moveArm(x, y);
+    }
+  }
+}
+
+void moveArm(int x, int y) {
+  // Motor / servo logic will go here
+  Serial.println("Moving robot arm to position...");
+}
+
+
+Click -> Verify at top left corner
+
+save it in Documents-> Arduino-> Robot-> robot.ino
+
+From Google Colab you have downloaded:
+
+output.json
+
+
+PLACE JSON IN YOUR LOCAL PROJECT FOLDER
+
+Your local folder should look like this:
+
+pro AI/
+ ├── send_data.py
+ ├── output.json   ✅ (place it here)
+
+send_data.py
+
+import json
+import time
+
+def send_to_robot(x, y):
+    print("Simulating serial communication...")
+    time.sleep(1)
+    print(f"Data that would be sent to Arduino: {x},{y}")
+
+# Read JSON
+with open("output.json", "r") as f:
+    data = json.load(f)
+
+# Check debris presence
+if not data["debris_present"]:
+    print("No debris detected. Robot will not move.")
+
+else:
+    print("Debris detected. Sending coordinates...")
+
+    for det in data["detections"]:
+        x, y = det["center"]
+        send_to_robot(x, y)
+
+
+
+AFTER YOU GET ARDUINO (REAL VERSION)
+You will replace only this part.
+New send_serial.py (REAL SERIAL)
+
+
+import json
+import time
+import serial   # NEW
+
+#1. Open serial connection (check COM port)
+ser = serial.Serial("COM3", 9600, timeout=1)
+time.sleep(2)   # wait for Arduino reset
+
+def send_to_robot(x, y):
+    message = f"{x},{y}\n"
+    ser.write(message.encode())
+    print("Sent to Arduino:", message.strip())
+    time.sleep(1)
+
+#2. Read JSON
+with open("output.json", "r") as f:
+    data = json.load(f)
+
+#3. Decide and send
+if not data["debris_present"]:
+    print("No debris detected. Robot will not move.")
+
+else:
+    print("Debris detected. Sending coordinates...")
+
+    for det in data["detections"]:
+        x, y = det["center"]
+        send_to_robot(x, y)
+
+ser.close()
+
+
+
+ONLY difference:
+Simulation print() → real serial.write()
+
+WHAT CHANGES IN ARDUINO CODE
+BEFORE (testing only)
+
+     Arduino just prints values.
+
+AFTER (REAL ROBOT CONTROL)
+
+	Arduino will:
+
+	Receive "x,y"
+
+	Split values
+
+	Convert to servo angles
+
+	Move motors
+
+Arduino (robot.ino) – BASIC VERSION
+
+
+#include <Servo.h>
+
+Servo servoX;
+Servo servoY;
+
+String data = "";
+
+void setup() {
+  Serial.begin(9600);
+  servoX.attach(9);
+  servoY.attach(10);
+  Serial.println("Arduino Ready");
+}
+
+void loop() {
+  if (Serial.available()) {
+    data = Serial.readStringUntil('\n');
+
+    int commaIndex = data.indexOf(',');
+    if (commaIndex != -1) {
+      int x = data.substring(0, commaIndex).toInt();
+      int y = data.substring(commaIndex + 1).toInt();
+
+      Serial.print("Received X: ");
+      Serial.print(x);
+      Serial.print(" Y: ");
+      Serial.println(y);
+
+      moveArm(x, y);
+    }
+  }
+}
+
+void moveArm(int x, int y) {
+  int angleX = map(x, 0, 1024, 0, 180);
+  int angleY = map(y, 0, 1024, 0, 180);
+
+  servoX.write(angleX);
+  servoY.write(angleY);
+}
+
+
+YOLO (Colab)
+   ↓
+output.json
+   ↓
+send_serial.py (local PC)
+   ↓  USB (Serial)
+Arduino
+   ↓
+Servo motors
+   ↓
+Robot arm moves
+
+
+
+
